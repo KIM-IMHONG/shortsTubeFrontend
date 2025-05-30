@@ -10,12 +10,31 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { projectApi, Project } from "@/lib/api";
-import { Video, Clock, CheckCircle, Loader2 } from "lucide-react";
+import {
+  Video,
+  Clock,
+  CheckCircle,
+  Loader2,
+  Trash2,
+  MoreVertical,
+} from "lucide-react";
 
 export default function HomePage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -30,6 +49,32 @@ export default function HomePage() {
       console.error("Failed to load projects:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteClick = (project: Project, e: React.MouseEvent) => {
+    e.stopPropagation(); // 카드 클릭 이벤트 방지
+    setProjectToDelete(project);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!projectToDelete) return;
+
+    setDeleting(true);
+    try {
+      await projectApi.delete(projectToDelete.project_id);
+      // 삭제 성공 시 목록에서 제거
+      setProjects(
+        projects.filter((p) => p.project_id !== projectToDelete.project_id)
+      );
+      setDeleteDialogOpen(false);
+      setProjectToDelete(null);
+    } catch (error) {
+      console.error("Failed to delete project:", error);
+      alert("프로젝트 삭제 중 오류가 발생했습니다.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -50,10 +95,11 @@ export default function HomePage() {
   const getStatusText = (status: string) => {
     switch (status) {
       case "prompts_generated":
-        return "생성 중...";
+        return "이미지 생성 중...";
       case "images_generated":
         return "비디오 생성 중...";
       case "videos_generated":
+        return "완료";
       case "completed":
         return "완료";
       default:
@@ -94,16 +140,28 @@ export default function HomePage() {
           {projects.map((project) => (
             <Card
               key={project.project_id}
-              className="cursor-pointer hover:shadow-lg transition-shadow"
+              className="cursor-pointer hover:shadow-lg transition-shadow relative"
               onClick={() => router.push(`/project/${project.project_id}`)}
             >
               <CardHeader>
-                <CardTitle className="text-lg line-clamp-2">
-                  {project.description}
-                </CardTitle>
-                <CardDescription>
-                  {new Date(project.created_at).toLocaleDateString("ko-KR")}
-                </CardDescription>
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <CardTitle className="text-lg line-clamp-2 pr-2">
+                      {project.description}
+                    </CardTitle>
+                    <CardDescription>
+                      {new Date(project.created_at).toLocaleDateString("ko-KR")}
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 flex-shrink-0"
+                    onClick={(e) => handleDeleteClick(project, e)}
+                  >
+                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2">
@@ -124,6 +182,40 @@ export default function HomePage() {
           ))}
         </div>
       )}
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>프로젝트 삭제</DialogTitle>
+            <DialogDescription>
+              다음 프로젝트를 정말로 삭제하시겠습니까?
+              <br />
+              <br />
+              <strong>&ldquo;{projectToDelete?.description}&rdquo;</strong>
+              <br />
+              <br />이 작업은 되돌릴 수 없습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deleting}
+            >
+              취소
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={deleting}
+            >
+              {deleting ? "삭제 중..." : "삭제"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

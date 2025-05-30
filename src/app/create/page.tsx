@@ -33,19 +33,48 @@ export default function CreatePage() {
       setProgress(10);
       const project = await projectApi.create(description);
 
-      // 2단계: 이미지 및 비디오 한번에 생성
+      // 2단계: 이미지 및 비디오 생성 시작
       setCurrentStep("이미지 생성 중... (약 2-3분 소요)");
       setProgress(30);
 
-      await projectApi.generateAll(project.project_id);
+      // 백그라운드에서 생성 시작
+      projectApi.generateAll(project.project_id);
 
-      setProgress(100);
-      setCurrentStep("완료!");
+      // 상태 폴링
+      const pollStatus = async () => {
+        try {
+          const updatedProject = await projectApi.get(project.project_id);
 
-      // 프로젝트 상세 페이지로 이동
-      setTimeout(() => {
-        router.push(`/project/${project.project_id}`);
-      }, 1000);
+          switch (updatedProject.status) {
+            case "prompts_generated":
+              setCurrentStep("이미지 생성 중... (약 2-3분 소요)");
+              setProgress(30);
+              break;
+            case "images_generated":
+              setCurrentStep("비디오 생성 중... (약 3-5분 소요)");
+              setProgress(70);
+              break;
+            case "videos_generated":
+            case "completed":
+              setCurrentStep("완료!");
+              setProgress(100);
+              // 프로젝트 상세 페이지로 이동
+              setTimeout(() => {
+                router.push(`/project/${project.project_id}`);
+              }, 1000);
+              return; // 폴링 중지
+          }
+
+          // 완료되지 않았으면 계속 폴링
+          setTimeout(pollStatus, 3000); // 3초마다 체크
+        } catch (error) {
+          console.error("Polling error:", error);
+          setTimeout(pollStatus, 5000); // 에러 시 5초 후 재시도
+        }
+      };
+
+      // 폴링 시작
+      setTimeout(pollStatus, 3000); // 3초 후 첫 체크
     } catch (error) {
       console.error("Error:", error);
       alert("프로젝트 생성 중 오류가 발생했습니다.");

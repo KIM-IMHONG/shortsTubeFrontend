@@ -10,6 +10,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { projectApi, Project } from "@/lib/api";
 import {
   ArrowLeft,
@@ -17,6 +25,7 @@ import {
   Video,
   CheckCircle,
   Loader2,
+  Trash2,
 } from "lucide-react";
 
 export default function ProjectPage() {
@@ -26,12 +35,18 @@ export default function ProjectPage() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadProject();
     // 프로젝트가 아직 완료되지 않았다면 주기적으로 체크
     const interval = setInterval(() => {
-      if (project && project.status !== "completed") {
+      if (
+        project &&
+        project.status !== "completed" &&
+        project.status !== "videos_generated"
+      ) {
         loadProject();
       }
     }, 5000); // 5초마다 체크
@@ -54,12 +69,51 @@ export default function ProjectPage() {
     }
   };
 
-  if (loading && (!project || project.status === "prompts_generated")) {
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!project) return;
+
+    setDeleting(true);
+    try {
+      await projectApi.delete(project.project_id);
+      // 삭제 성공 시 홈으로 이동
+      router.push("/");
+    } catch (error) {
+      console.error("Failed to delete project:", error);
+      alert("프로젝트 삭제 중 오류가 발생했습니다.");
+      setDeleting(false);
+    }
+  };
+
+  const getStatusMessage = (status: string) => {
+    switch (status) {
+      case "prompts_generated":
+        return "이미지 생성 중...";
+      case "images_generated":
+        return "비디오 생성 중...";
+      case "videos_generated":
+      case "completed":
+        return "생성 완료";
+      default:
+        return "처리 중...";
+    }
+  };
+
+  if (
+    loading &&
+    (!project ||
+      (project.status !== "completed" && project.status !== "videos_generated"))
+  ) {
     return (
       <div className="container mx-auto p-6">
         <div className="max-w-2xl mx-auto text-center">
           <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">콘텐츠 생성 중...</h2>
+          <h2 className="text-xl font-semibold mb-2">
+            {project ? getStatusMessage(project.status) : "콘텐츠 생성 중..."}
+          </h2>
           <p className="text-muted-foreground">
             이미지와 비디오를 생성하고 있습니다. 약 5-10분 정도 소요됩니다.
           </p>
@@ -81,10 +135,16 @@ export default function ProjectPage() {
 
   return (
     <div className="container mx-auto p-6">
-      <Button variant="ghost" onClick={() => router.push("/")} className="mb-6">
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        프로젝트 목록
-      </Button>
+      <div className="flex justify-between items-center mb-6">
+        <Button variant="ghost" onClick={() => router.push("/")}>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          프로젝트 목록
+        </Button>
+        <Button variant="outline" onClick={handleDeleteClick}>
+          <Trash2 className="w-4 h-4 mr-2" />
+          프로젝트 삭제
+        </Button>
+      </div>
 
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">
@@ -191,12 +251,55 @@ export default function ProjectPage() {
         <Card>
           <CardContent className="py-12 text-center">
             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">
+              {getStatusMessage(project.status)}
+            </h3>
             <p className="text-muted-foreground">
-              콘텐츠를 생성하고 있습니다. 잠시만 기다려주세요...
+              {project.status === "prompts_generated"
+                ? "이미지를 생성하고 있습니다. 잠시만 기다려주세요..."
+                : project.status === "images_generated"
+                ? "비디오를 생성하고 있습니다. 잠시만 기다려주세요..."
+                : "콘텐츠를 생성하고 있습니다. 잠시만 기다려주세요..."}
             </p>
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>프로젝트 삭제</DialogTitle>
+            <DialogDescription>
+              현재 프로젝트를 정말로 삭제하시겠습니까?
+              <br />
+              <br />
+              <strong>&ldquo;{project?.description}&rdquo;</strong>
+              <br />
+              <br />
+              생성된 모든 이미지와 비디오가 함께 삭제됩니다. 이 작업은 되돌릴 수
+              없습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deleting}
+            >
+              취소
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={deleting}
+            >
+              {deleting ? "삭제 중..." : "삭제"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -73,4 +73,10 @@ export const projectApi = {
     );
     return response.data;
   },
+
+  // 프로젝트 삭제
+  delete: async (projectId: string) => {
+    const response = await api.delete(`/api/projects/${projectId}`);
+    return response.data;
+  },
 };
