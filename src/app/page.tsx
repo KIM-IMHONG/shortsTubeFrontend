@@ -27,6 +27,7 @@ import {
   Loader2,
   Trash2,
   MoreVertical,
+  Heart,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -116,7 +117,14 @@ export default function HomePage() {
             AI를 활용한 YouTube Shorts 영상 자동 생성
           </p>
         </div>
-        <Button onClick={() => router.push("/create")}>새 프로젝트 생성</Button>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={() => router.push("/create")}>
+            기존 워크플로우
+          </Button>
+          <Button onClick={() => router.push("/scene-workflow")}>
+            🎬 10단계 장면 워크플로우
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -146,11 +154,24 @@ export default function HomePage() {
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <CardTitle className="text-lg line-clamp-2 pr-2">
-                      {project.description}
-                    </CardTitle>
+                    <div className="flex items-center gap-2 mb-1">
+                      <CardTitle className="text-lg line-clamp-2 pr-2">
+                        {project.description}
+                      </CardTitle>
+                      {project.dog_analysis && (
+                        <div className="flex items-center gap-1 px-2 py-1 bg-pink-100 text-pink-800 rounded-full text-xs font-medium">
+                          <Heart className="w-3 h-3" />
+                          맞춤형
+                        </div>
+                      )}
+                    </div>
                     <CardDescription>
                       {new Date(project.created_at).toLocaleDateString("ko-KR")}
+                      {project.dog_analysis && (
+                        <span className="ml-2 text-pink-600">
+                          • {project.dog_analysis.breed}
+                        </span>
+                      )}
                     </CardDescription>
                   </div>
                   <Button
